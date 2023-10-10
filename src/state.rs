@@ -1,5 +1,4 @@
-use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Uint128};
+use cosmwasm_std::Addr;
 use cw_storage_plus::{Item, Map};
 
 pub type SocialInfo = (Platform, ProfileId);

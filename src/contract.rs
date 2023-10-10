@@ -8,7 +8,6 @@ use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SocialResponse};
 use crate::state::{Platform, ProfileId, SocialInfo, ADDRESS_TO_SOCIAL, OWNER, SOCIAL_TO_ADDRESS};
 use cosmwasm_std::Addr;
-use cw_storage_plus::{Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -26,7 +25,7 @@ pub fn instantiate(
     _deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    msg: InstantiateMsg,
+    _msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(_deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     OWNER.save(_deps.storage, &info.sender)?;
