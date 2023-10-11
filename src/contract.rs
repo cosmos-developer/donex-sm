@@ -98,44 +98,45 @@ mod tests {
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{from_binary, Addr, Empty};
-    // #[test]
-    // fn submit_social() {
-    //     let mut app = App::default();
+    use cw_multi_test::{App, ContractWrapper, Executor};
+    #[test]
+    fn submit_social() {
+        let mut app = App::default();
 
-    //     let code = ContractWrapper::new(execute, instantiate, query);
-    //     let code_id = app.store_code(Box::new(code));
+        let code = ContractWrapper::new(execute, instantiate, query);
+        let code_id = app.store_code(Box::new(code));
 
-    //     let addr = app
-    //         .instantiate_contract(
-    //             code_id,
-    //             Addr::unchecked("owner"),
-    //             &Empty {},
-    //             &[],
-    //             "Contract",
-    //             None,
-    //         )
-    //         .unwrap();
-    //     let resp = app
-    //         .execute_contract(
-    //             addr.clone(),
-    //             Addr::unchecked("owner"),
-    //             &ExecuteMsg::SubmitSocial {
-    //                 social_info: ("twitter".to_string(), "123".to_string()),
-    //                 address: Addr::unchecked("abcde"),
-    //             },
-    //             &[],
-    //         )
-    //         .unwrap();
-    //     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
-    //     assert_eq!(
-    //         wasm.attributes
-    //             .iter()
-    //             .find(|attr| attr.key == "action")
-    //             .unwrap()
-    //             .value,
-    //         "submit_social_link"
-    //     );
-    // }
+        let addr = app
+            .instantiate_contract(
+                code_id,
+                Addr::unchecked("owner"),
+                &InstantiateMsg {},
+                &[],
+                "Contract",
+                None,
+            )
+            .unwrap();
+        let resp = app
+            .execute_contract(
+                Addr::unchecked("owner"),
+                addr,
+                &ExecuteMsg::SubmitSocial {
+                    social_info: ("twitter".to_string(), "123".to_string()),
+                    address: Addr::unchecked("abcde"),
+                },
+                &[],
+            )
+            .unwrap();
+        let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
+        assert_eq!(
+            wasm.attributes
+                .iter()
+                .find(|attr| attr.key == "method")
+                .unwrap()
+                .value,
+            "submit_social_link"
+        );
+    }
 
     #[test]
     fn social_query() {
