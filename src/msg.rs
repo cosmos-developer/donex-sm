@@ -1,8 +1,10 @@
 use crate::state::{Platform, ProfileId, SocialInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Addr;
+use cosmwasm_std::{Addr, Uint128};
 #[cw_serde]
-pub struct InstantiateMsg {}
+pub struct InstantiateMsg {
+    pub accepted_token: Vec<String>,
+}
 
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -10,6 +12,10 @@ pub enum ExecuteMsg {
         social_info: SocialInfo,
         address: Addr,
     },
+    Donate{
+        recipient: Addr,
+        amount: Uint128
+    }
 }
 
 #[cw_serde]

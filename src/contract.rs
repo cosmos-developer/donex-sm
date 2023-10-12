@@ -1,34 +1,26 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, Addr};
 use cw2::set_contract_version;
 // use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SocialResponse};
-use crate::state::{Platform, ProfileId, SocialInfo, ADDRESS_TO_SOCIAL, OWNER, SOCIAL_TO_ADDRESS};
-use cosmwasm_std::Addr;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
+use crate::state::{Platform, ProfileId, SocialInfo, ADDRESS_TO_SOCIAL, OWNER, SOCIAL_TO_ADDRESS, ACCEPTED_TOKEN};
+use cw20_base::contract::{execute_transfer, execute_send};
 const CONTRACT_NAME: &str = "cosmos:donex-sm";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct State {
-    pub count: i32,
-    pub owner: Addr,
-}
-
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    _msg: InstantiateMsg,
+    msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    set_contract_version(_deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    OWNER.save(_deps.storage, &info.sender)?;
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    OWNER.save(deps.storage, &info.sender)?;
+    ACCEPTED_TOKEN.save(deps.storage, &msg.accepted_token)?;
     Ok(Response::new()
         .add_attribute("method", "instantiate")
         .add_attribute("owner", info.sender))
@@ -37,16 +29,17 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
+    use ExecuteMsg::*;
     match msg {
-        ExecuteMsg::SubmitSocial {
+        SubmitSocial {
             social_info,
             address,
         } => submit_social_link(deps, info, social_info, address),
-        // ExecuteMsg::Reset { count } => try_reset(deps, info, count),
+        Donate {recipient, amount} => donate(deps, env, info, recipient, amount),
     }
 }
 
@@ -83,6 +76,23 @@ pub fn submit_social_link(
     ADDRESS_TO_SOCIAL.save(deps.storage, address, &social_info)?;
     Ok(Response::new().add_attribute("method", "submit_social_link"))
 }
+
+pub fn donate(mut deps: DepsMut, env: Env,  info: MessageInfo, recipient: Addr, amount: Uint128) -> Result<Response, ContractError>{
+    const FEE_RATIO: u64 = 5;
+    let accepted_token = ACCEPTED_TOKEN.load(deps.storage)?;
+    let _owner = OWNER.load(deps.storage);
+    let denom = accepted_token.first().unwrap();
+    let donation = cw_utils::must_pay(&info, &denom)?.u128();
+
+    // Calculate fee and actual amount receive
+    let fee = donation / FEE_RATIO as u128  * 100;
+    let actual = donation - fee;
+
+    execute_transfer(deps.branch(), env.clone(), info.clone(), recipient.to_string(), actual.into())?;
+    let msg =format!("Handling donation from {} to {}", info.sender.to_string(), recipient.to_string());
+    execute_send(deps.branch(), env.clone(), info.clone(), env.contract.address.to_string(), amount, cosmwasm_std::Binary(msg.into_bytes()))?;
+    Ok(Response::new())
+    }
 fn query_by_social_link(
     deps: Deps,
     profile_id: ProfileId,
@@ -110,7 +120,9 @@ mod tests {
             .instantiate_contract(
                 code_id,
                 Addr::unchecked("owner"),
-                &InstantiateMsg {},
+                &InstantiateMsg {
+                    accepted_token: vec!["ATOM".to_string()],
+                },
                 &[],
                 "Contract",
                 None,
@@ -147,7 +159,9 @@ mod tests {
             deps.as_mut(),
             env.clone(),
             mock_info("sender", &[]),
-            InstantiateMsg {},
+            InstantiateMsg {
+                accepted_token: vec!["ATOM".to_string()],
+            },
         )
         .unwrap();
         let resp = query(
