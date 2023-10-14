@@ -12,10 +12,10 @@ pub enum ExecuteMsg {
         social_info: SocialInfo,
         address: Addr,
     },
-    Donate{
+    Donate {
         recipient: Addr,
-        amount: Uint128
-    }
+        amount: Uint128,
+    },
 }
 
 #[cw_serde]
@@ -29,5 +29,5 @@ pub enum QueryMsg {
 }
 #[cw_serde]
 pub struct SocialResponse {
-    pub address: Addr,
+    pub address: Vec<Addr>,
 }

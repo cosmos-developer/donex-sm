@@ -1,6 +1,6 @@
 use cosmwasm_std::StdError;
-use thiserror::Error;
 use cw_utils::PaymentError;
+use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum ContractError {
     #[error("{0}")]
@@ -50,10 +50,12 @@ pub enum ContractError {
     #[error("Duplicate initial balance addresses")]
     DuplicateInitialBalanceAddresses {},
 
+    #[error("Key already exists")]
+    Claimed {},
     // Add any other custom errors you like here.
     // Look at https://docs.rs/thiserror/1.0.21/thiserror/ for details.
 }
-
+#[allow(deprecated)]
 impl From<cw20_base::ContractError> for ContractError {
     fn from(err: cw20_base::ContractError) -> Self {
         match err {
@@ -63,6 +65,7 @@ impl From<cw20_base::ContractError> for ContractError {
                 ContractError::CannotSetOwnAccount {}
             }
             cw20_base::ContractError::InvalidExpiration {} => ContractError::InvalidExpiration {},
+            #[allow(clippy::all)]
             cw20_base::ContractError::InvalidZeroAmount {} => ContractError::InvalidZeroAmount {},
             cw20_base::ContractError::Expired {} => ContractError::Expired {},
             cw20_base::ContractError::NoAllowance {} => ContractError::NoAllowance {},
