@@ -1,15 +1,13 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, Uint128,
+    to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
 };
 use cw2::set_contract_version;
-// use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SocialResponse};
 use crate::state::{Platform, ProfileId, SocialInfo, UserInfo, ACCEPTED_TOKEN, OWNER, USER_INFOS};
-use cw20_base::contract::{execute_send, execute_transfer};
 const CONTRACT_NAME: &str = "cosmos:donex-sm";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -31,7 +29,7 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
@@ -41,7 +39,7 @@ pub fn execute(
             social_info,
             address,
         } => submit_social_link(deps, info, social_info, address),
-        Donate { recipient, amount } => donate(deps, env, info, recipient, amount),
+        Donate { .. } => todo!(),
     }
 }
 
@@ -73,42 +71,6 @@ pub fn submit_social_link(
     USER_INFOS.save(deps.storage, address.as_ref(), &user_info)?;
 
     Ok(Response::new().add_attribute("method", "submit_social_link"))
-}
-
-pub fn donate(
-    mut deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    recipient: Addr,
-    amount: Uint128,
-) -> Result<Response, ContractError> {
-    const FEE_RATIO: u64 = 5;
-    let accepted_token = ACCEPTED_TOKEN.load(deps.storage)?;
-    let _owner = OWNER.load(deps.storage);
-    let denom = accepted_token.first().unwrap();
-    let donation = cw_utils::must_pay(&info, denom)?.u128();
-
-    // Calculate fee and actual amount receive
-    let fee = donation / FEE_RATIO as u128 * 100;
-    let actual = donation - fee;
-
-    execute_transfer(
-        deps.branch(),
-        env.clone(),
-        info.clone(),
-        recipient.to_string(),
-        actual.into(),
-    )?;
-    let msg = format!("Handling donation from {} to {}", info.sender, recipient);
-    execute_send(
-        deps.branch(),
-        env.clone(),
-        info.clone(),
-        env.contract.address.to_string(),
-        amount,
-        cosmwasm_std::Binary(msg.into_bytes()),
-    )?;
-    Ok(Response::new())
 }
 fn query_by_social_link(
     deps: Deps,
