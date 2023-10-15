@@ -6,7 +6,9 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SocialResponse};
+use crate::msg::{
+    ExecuteMsg, GetAddressesBySocialResponse, GetSocialsByAddressResponse, InstantiateMsg, QueryMsg,
+};
 use crate::state::{Platform, ProfileId, SocialInfo, UserInfo, ACCEPTED_TOKEN, OWNER, USER_INFOS};
 const CONTRACT_NAME: &str = "cosmos:donex-sm";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -46,10 +48,11 @@ pub fn execute(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetSocial {
+        QueryMsg::GetAddressesBySocial {
             profile_id,
             platform,
         } => to_binary(&query_by_social_link(deps, profile_id, platform)?),
+        QueryMsg::GetSocialsByAddress { address } => to_binary(&query_by_address(deps, address)?),
     }
 }
 // submit link between social platform accounts and chain address
@@ -76,7 +79,7 @@ fn query_by_social_link(
     deps: Deps,
     profile_id: ProfileId,
     platform: Platform,
-) -> StdResult<SocialResponse> {
+) -> StdResult<GetAddressesBySocialResponse> {
     let social_info = (platform, profile_id);
     // Query by (platform, profile_id)
     let user_infos: Vec<_> = USER_INFOS
@@ -88,13 +91,33 @@ fn query_by_social_link(
         .collect();
 
     if user_infos.is_empty() {
-        return Ok(SocialResponse { address: vec![] });
+        return Ok(GetAddressesBySocialResponse { address: vec![] });
     }
     let addresses = user_infos
         .iter()
         .map(|user_info| user_info.1.address.clone())
         .collect::<Vec<_>>();
-    Ok(SocialResponse { address: addresses })
+    Ok(GetAddressesBySocialResponse { address: addresses })
+}
+fn query_by_address(deps: Deps, address: Addr) -> StdResult<GetSocialsByAddressResponse> {
+    // Query by address
+    let user_infos: Vec<_> = USER_INFOS
+        .idx
+        .address
+        .prefix(address)
+        .range(deps.storage, None, None, Order::Ascending)
+        .flatten()
+        .collect();
+    let social_infos = user_infos
+        .iter()
+        .map(|user_info| {
+            (
+                user_info.1.platform_id.clone(),
+                user_info.1.profile_id.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+    Ok(GetSocialsByAddressResponse { social_infos })
 }
 
 #[cfg(test)]
@@ -145,7 +168,7 @@ mod tests {
     }
 
     #[test]
-    fn social_query() {
+    fn query_by_social() {
         let mut deps = mock_dependencies();
         let env = mock_env();
 
@@ -161,15 +184,15 @@ mod tests {
         let resp = query(
             deps.as_ref(),
             env.clone(),
-            QueryMsg::GetSocial {
+            QueryMsg::GetAddressesBySocial {
                 profile_id: "1".to_string(),
                 platform: "twitter".to_string(),
             },
         );
         assert!(resp.is_ok());
-        let resp: SocialResponse = from_binary(&resp.unwrap()).unwrap();
+        let resp: GetAddressesBySocialResponse = from_binary(&resp.unwrap()).unwrap();
 
-        assert_eq!(resp, SocialResponse { address: vec![] });
+        assert_eq!(resp, GetAddressesBySocialResponse { address: vec![] });
         // execute
         let resp = execute(
             deps.as_mut(),
@@ -185,17 +208,75 @@ mod tests {
         let resp = query(
             deps.as_ref(),
             env,
-            QueryMsg::GetSocial {
+            QueryMsg::GetAddressesBySocial {
                 platform: "twitter".to_string(),
                 profile_id: "123".to_string(),
             },
         )
         .unwrap();
-        let resp: SocialResponse = from_binary(&resp).unwrap();
+        let resp: GetAddressesBySocialResponse = from_binary(&resp).unwrap();
         assert_eq!(
             resp,
-            SocialResponse {
+            GetAddressesBySocialResponse {
                 address: vec![Addr::unchecked("abc")]
+            }
+        );
+    }
+    #[test]
+    fn query_by_address() {
+        let mut deps = mock_dependencies();
+        let env = mock_env();
+
+        instantiate(
+            deps.as_mut(),
+            env.clone(),
+            mock_info("sender", &[]),
+            InstantiateMsg {
+                accepted_token: vec!["ATOM".to_string()],
+            },
+        )
+        .unwrap();
+        let resp = query(
+            deps.as_ref(),
+            env.clone(),
+            QueryMsg::GetSocialsByAddress {
+                address: Addr::unchecked("owner"),
+            },
+        );
+        assert!(resp.is_ok());
+        let resp: GetSocialsByAddressResponse = from_binary(&resp.unwrap()).unwrap();
+
+        assert_eq!(
+            resp,
+            GetSocialsByAddressResponse {
+                social_infos: vec![]
+            }
+        );
+        // execute
+        let resp = execute(
+            deps.as_mut(),
+            env.clone(),
+            mock_info("sender", &[]),
+            ExecuteMsg::SubmitSocial {
+                social_info: ("twitter".to_string(), "123".to_string()),
+                address: Addr::unchecked("user"),
+            },
+        );
+        assert!(resp.is_ok());
+        // query again
+        let resp = query(
+            deps.as_ref(),
+            env.clone(),
+            QueryMsg::GetSocialsByAddress {
+                address: Addr::unchecked("user"),
+            },
+        )
+        .unwrap();
+        let resp: GetSocialsByAddressResponse = from_binary(&resp).unwrap();
+        assert_eq!(
+            resp,
+            GetSocialsByAddressResponse {
+                social_infos: vec![("twitter".to_string(), "123".to_string())]
             }
         );
     }

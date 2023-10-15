@@ -21,13 +21,19 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(SocialResponse)]
-    GetSocial {
+    #[returns(GetAddressesBySocialResponse)]
+    GetAddressesBySocial {
         profile_id: ProfileId,
         platform: Platform,
     },
+    #[returns(GetSocialsByAddressResponse)]
+    GetSocialsByAddress { address: Addr },
 }
 #[cw_serde]
-pub struct SocialResponse {
+pub struct GetAddressesBySocialResponse {
     pub address: Vec<Addr>,
+}
+#[cw_serde]
+pub struct GetSocialsByAddressResponse {
+    pub social_infos: Vec<(Platform, ProfileId)>,
 }
