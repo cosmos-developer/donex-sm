@@ -1,18 +1,19 @@
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
-};
-use cw2::set_contract_version;
-
 use crate::error::ContractError;
 use crate::msg::{
     ExecuteMsg, GetAddressesBySocialResponse, GetSocialsByAddressResponse, InstantiateMsg, QueryMsg,
 };
 use crate::state::{Platform, ProfileId, SocialInfo, UserInfo, ACCEPTED_TOKEN, OWNER, USER_INFOS};
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
+use cosmwasm_std::{
+    coins, to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response,
+    StdResult,
+};
+use cw2::set_contract_version;
 const CONTRACT_NAME: &str = "cosmos:donex-sm";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+const FEE_PERCENTAGE: u128 = 5;
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
@@ -31,7 +32,7 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
@@ -41,7 +42,7 @@ pub fn execute(
             social_info,
             address,
         } => submit_social_link(deps, info, social_info, address),
-        Donate { .. } => todo!(),
+        Donate { recipient } => donate(deps, env, info, recipient),
     }
 }
 
@@ -55,6 +56,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetSocialsByAddress { address } => to_binary(&query_by_address(deps, address)?),
     }
 }
+
 // submit link between social platform accounts and chain address
 pub fn submit_social_link(
     deps: DepsMut,
@@ -74,6 +76,46 @@ pub fn submit_social_link(
     USER_INFOS.save(deps.storage, address.as_ref(), &user_info)?;
 
     Ok(Response::new().add_attribute("method", "submit_social_link"))
+}
+
+pub fn donate(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    recipient: Addr,
+) -> Result<Response, ContractError> {
+    // Check if denom in accepted_token
+    let accepted_tokens = ACCEPTED_TOKEN.load(deps.storage)?;
+    let owner = OWNER.load(deps.storage)?;
+    // For now restricted to only 1 token per transaction
+    // TODO: handle multiple token sent
+    if info.funds.len() != 1 {
+        return Err(ContractError::InvalidDenom {});
+    }
+    let denom = info.funds.first().unwrap().denom.to_string();
+    if !accepted_tokens.contains(&denom.to_string()) {
+        return Err(ContractError::InvalidDenom {});
+    }
+    let donation = cw_utils::must_pay(&info, &denom)?.u128();
+    let deducted_fee = donation * FEE_PERCENTAGE / 100;
+    let recipent_amount = donation - deducted_fee;
+    let message_recipent = BankMsg::Send {
+        to_address: recipient.to_string(),
+        amount: coins(recipent_amount, &denom),
+    };
+    let message_owner = BankMsg::Send {
+        to_address: owner.to_string(),
+        amount: coins(deducted_fee, &denom),
+    };
+
+    let resp = Response::new()
+        .add_message(message_recipent)
+        .add_message(message_owner)
+        .add_attribute("action", "donate")
+        .add_attribute("amount", recipent_amount.to_string())
+        .add_attribute("sender", info.sender.to_string());
+
+    Ok(resp)
 }
 fn query_by_social_link(
     deps: Deps,
@@ -278,6 +320,65 @@ mod tests {
             GetSocialsByAddressResponse {
                 social_infos: vec![("twitter".to_string(), "123".to_string())]
             }
+        );
+    }
+    #[test]
+    fn donations() {
+        let mut app = App::new(|router, _, storage| {
+            router
+                .bank
+                .init_balance(storage, &Addr::unchecked("user"), coins(100, "ucmst"))
+                .unwrap()
+        });
+
+        let code = ContractWrapper::new(execute, instantiate, query);
+        let code_id = app.store_code(Box::new(code));
+
+        let addr = app
+            .instantiate_contract(
+                code_id,
+                Addr::unchecked("owner"),
+                &InstantiateMsg {
+                    accepted_token: vec!["ucmst".to_string(), "eth".to_string()],
+                },
+                &[],
+                "Contract",
+                None,
+            )
+            .unwrap();
+        app.execute_contract(
+            Addr::unchecked("user"),
+            addr.clone(),
+            &ExecuteMsg::Donate {
+                recipient: Addr::unchecked("admin1"),
+            },
+            &coins(100, "ucmst"),
+        )
+        .unwrap();
+        assert_eq!(
+            app.wrap()
+                .query_balance("user", "ucmst")
+                .unwrap()
+                .amount
+                .u128(),
+            0
+        );
+        // Verify that the fees and recipient amounts have been sent accurately.
+        assert_eq!(
+            app.wrap()
+                .query_balance("admin1", "ucmst")
+                .unwrap()
+                .amount
+                .u128(),
+            95
+        );
+        assert_eq!(
+            app.wrap()
+                .query_balance("owner", "ucmst")
+                .unwrap()
+                .amount
+                .u128(),
+            5
         );
     }
 }
