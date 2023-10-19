@@ -67,7 +67,7 @@ export interface DonexInterface extends DonexReadOnlyInterface {
     socialInfo
   }: {
     address: Addr;
-    socialInfo: string[][];
+    socialInfo: string[];
   }, fee?: number | StdFee | "auto", memo?: string, _funds?: Coin[]) => Promise<ExecuteResult>;
   donate: ({
     recipient
@@ -94,7 +94,7 @@ export class DonexClient extends DonexQueryClient implements DonexInterface {
     socialInfo
   }: {
     address: Addr;
-    socialInfo: string[][];
+    socialInfo: string[];
   }, fee: number | StdFee | "auto" = "auto", memo?: string, _funds?: Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
       submit_social: {
