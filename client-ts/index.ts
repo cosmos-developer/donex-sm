@@ -24,17 +24,35 @@ async function createClient() {
     )
 
     let donex = new DonexClient(client, accounts[0].address, contract_addr)
-9
-    let result = await donex.submitSocial({
+    return donex
+}
+async function submitSocial(client: DonexClient){
+    let result = await client.submitSocial({
         address: "comdex1elk425naxzh895xaedl4q95zylag0d7j08yhd2",
         socialInfo: ["facebook", "123"]
     })
 
     console.log(result)
 }
+async function getSocialsByAddress(client: DonexClient){
+    let result = await client.getSocialsByAddress({address: "comdex1elk425naxzh895xaedl4q95zylag0d7j08yhd2"});
 
+    return result.social_infos
+}
 try {
-    createClient()
-} catch {
+    // Submit transaction 
+    (async() => {
+        let client = await createClient()
+        await submitSocial(client);
+        // console.log(result)
+    }) ();
 
+    // Query information from contract
+    (async() => {
+        let client = await createClient()
+        let result = await getSocialsByAddress(client);
+        console.log(result)
+    }) ()
+} catch(e) {
+    console.log(e);
 }
