@@ -7,6 +7,7 @@ const rpcEndpoint = "http://ec2-3-0-52-194.ap-southeast-1.compute.amazonaws.com:
 const contract_addr = "comdex14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9spunaxy"
 
 async function createClient() {
+    // replace with keplr signer here
     const signer = await DirectSecp256k1HdWallet.fromMnemonic(
         "hover oyster chief slice eye police wrestle price syrup present drastic bone rally other subway away august renew drop parrot situate nation scatter venue",
         {
@@ -14,6 +15,7 @@ async function createClient() {
         }
     )
     let accounts = await signer.getAccounts()
+    // end replace with keplr signer
 
     let client = await SigningCosmWasmClient.connectWithSigner(
         rpcEndpoint, 
