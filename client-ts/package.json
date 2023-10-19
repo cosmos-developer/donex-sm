@@ -1,0 +1,15 @@
+{
+  "name": "client-mock",
+  "version": "1.0.0",
+  "description": "interact with smart contract",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@cosmjs/amino": "^0.31.1",
+    "@cosmjs/cosmwasm-stargate": "^0.31.1"
+  }
+}
