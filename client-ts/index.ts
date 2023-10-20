@@ -82,16 +82,12 @@ try {
   //     console.log(result);
   //   })();
 
+  // Query address, and then send donate
   (async function () {
     let client = await createClient();
     let result = await getAddressesBySocial(client, "facebook", "123");
     console.log(result);
-    let result2 = await sendDonate(
-      client,
-      "comdex1pwwdh8w90m8kfp2r4zf6aepxyxpke9304ps3u7",
-      1000000,
-      "ucmst"
-    );
+    let result2 = await sendDonate(client, result[0], 1000000, "ucmst");
     console.log(result2);
   })();
 } catch (e) {
