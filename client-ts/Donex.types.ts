@@ -32,5 +32,5 @@ export interface GetAddressesBySocialResponse {
   address: Addr[];
 }
 export interface GetSocialsByAddressResponse {
-  social_infos: [string, string];
+  social_infos: [string, string][];
 }
