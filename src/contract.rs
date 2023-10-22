@@ -68,12 +68,18 @@ pub fn submit_social_link(
     if info.sender != OWNER.load(deps.storage)? {
         return Err(ContractError::Unauthorized {});
     }
+    let (platform_id, profile_id) = social_info;
+
     let user_info = UserInfo {
         address: address.clone(),
-        platform_id: social_info.0,
-        profile_id: social_info.1,
+        platform_id: platform_id.clone(),
+        profile_id: profile_id.clone(),
     };
-    USER_INFOS.save(deps.storage, address.as_ref(), &user_info)?;
+    USER_INFOS.save(
+        deps.storage,
+        [address.to_string(), platform_id].join("_").as_str(),
+        &user_info,
+    )?;
 
     Ok(Response::new().add_attribute("method", "submit_social_link"))
 }
@@ -146,7 +152,7 @@ fn query_by_address(deps: Deps, address: Addr) -> StdResult<GetSocialsByAddressR
     let user_infos: Vec<_> = USER_INFOS
         .idx
         .address
-        .prefix(address)
+        .prefix(address.to_string())
         .range(deps.storage, None, None, Order::Ascending)
         .flatten()
         .collect();
@@ -249,10 +255,37 @@ mod tests {
         // query again
         let resp = query(
             deps.as_ref(),
-            env,
+            env.clone(),
             QueryMsg::GetAddressesBySocial {
                 platform: "twitter".to_string(),
                 profile_id: "123".to_string(),
+            },
+        )
+        .unwrap();
+        let resp: GetAddressesBySocialResponse = from_binary(&resp).unwrap();
+        assert_eq!(
+            resp,
+            GetAddressesBySocialResponse {
+                address: vec![Addr::unchecked("abc")]
+            }
+        );
+        // execute
+        let resp = execute(
+            deps.as_mut(),
+            env.clone(),
+            mock_info("sender", &[]),
+            ExecuteMsg::SubmitSocial {
+                social_info: ("facebook".to_string(), "456".to_string()),
+                address: Addr::unchecked("abc"),
+            },
+        );
+        assert!(resp.is_ok());
+        let resp = query(
+            deps.as_ref(),
+            env.clone(),
+            QueryMsg::GetAddressesBySocial {
+                platform: "facebook".to_string(),
+                profile_id: "456".to_string(),
             },
         )
         .unwrap();
@@ -319,6 +352,36 @@ mod tests {
             resp,
             GetSocialsByAddressResponse {
                 social_infos: vec![("twitter".to_string(), "123".to_string())]
+            }
+        );
+        // execute
+        let resp = execute(
+            deps.as_mut(),
+            env.clone(),
+            mock_info("sender", &[]),
+            ExecuteMsg::SubmitSocial {
+                social_info: ("facebook".to_string(), "456".to_string()),
+                address: Addr::unchecked("user"),
+            },
+        );
+        assert!(resp.is_ok());
+        // query again
+        let resp = query(
+            deps.as_ref(),
+            env.clone(),
+            QueryMsg::GetSocialsByAddress {
+                address: Addr::unchecked("user"),
+            },
+        )
+        .unwrap();
+        let resp: GetSocialsByAddressResponse = from_binary(&resp).unwrap();
+        assert_eq!(
+            resp,
+            GetSocialsByAddressResponse {
+                social_infos: vec![
+                    ("facebook".to_string(), "456".to_string()),
+                    ("twitter".to_string(), "123".to_string()),
+                ]
             }
         );
     }

@@ -5,7 +5,7 @@ pub type SocialInfo = (Platform, ProfileId);
 pub type Platform = String;
 pub type ProfileId = String;
 pub struct InfoIndexes<'a> {
-    pub address: MultiIndex<'a, Addr, UserInfo, String>,
+    pub address: MultiIndex<'a, String, UserInfo, String>,
     pub social_info: MultiIndex<'a, (String, String), UserInfo, String>,
 }
 impl<'a> IndexList<UserInfo> for InfoIndexes<'a> {
@@ -17,7 +17,7 @@ impl<'a> IndexList<UserInfo> for InfoIndexes<'a> {
 pub const fn infos<'a>() -> IndexedMap<'a, &'a str, UserInfo, InfoIndexes<'a>> {
     let indexes = InfoIndexes {
         address: MultiIndex::new(
-            |_pk: &[u8], d: &UserInfo| d.address.clone(),
+            |_pk: &[u8], d: &UserInfo| d.address.to_string(),
             "infos",
             "infos__address",
         ),
