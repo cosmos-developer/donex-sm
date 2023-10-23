@@ -4,10 +4,10 @@ import { DonexClient } from "./Donex.client";
 import { Decimal } from "@cosmjs/math";
 import { Addr } from "./Donex.types";
 import { coins } from "@cosmjs/amino";
-const rpcEndpoint =
+const RPC_ENDPOINT =
   "http://ec2-3-0-52-194.ap-southeast-1.compute.amazonaws.com:26657";
-const contract_addr =
-  "comdex1nc5tatafv6eyq7llkr2gv50ff9e22mnf70qgjlv737ktmt4eswrqdfklyz";
+const CONTRACT_ADDRESS =
+  "comdex17p9rzwnnfxcjp32un9ug7yhhzgtkhvl9jfksztgw5uh69wac2pgs4jg6dx";
 
 async function createClient() {
   // replace with keplr signer here
@@ -21,31 +21,45 @@ async function createClient() {
   // end replace with keplr signer
 
   let client = await SigningCosmWasmClient.connectWithSigner(
-    rpcEndpoint,
+    RPC_ENDPOINT,
     signer,
     {
       gasPrice: { amount: Decimal.fromUserInput("1000", 0), denom: "ucmdx" },
     }
   );
 
-  let donex = new DonexClient(client, accounts[0].address, contract_addr);
+  let donex = new DonexClient(client, accounts[0].address, CONTRACT_ADDRESS);
   return donex;
 }
-async function submitSocial(client: DonexClient) {
+
+// Only callable by contract owner
+/**
+ *
+ * @param client : DonexClient instance
+ * @param address : user address
+ * @param socialInfo : user social infos(in form of [platform, profile_id])
+ */
+async function submitSocial(
+  client: DonexClient,
+  address: Addr,
+  socialInfo: string[]
+) {
   let result = await client.submitSocial({
-    address: "comdex1elk425naxzh895xaedl4q95zylag0d7j08yhd2",
-    socialInfo: ["facebook", "123"],
+    address: address,
+    socialInfo: socialInfo,
   });
 
   console.log(result);
 }
-async function getSocialsByAddress(client: DonexClient) {
+
+async function getSocialsByAddress(client: DonexClient, address: Addr) {
   let result = await client.getSocialsByAddress({
-    address: "comdex1elk425naxzh895xaedl4q95zylag0d7j08yhd2",
+    address: address,
   });
 
   return result.social_infos;
 }
+
 async function getAddressesBySocial(
   client: DonexClient,
   platform: string,
@@ -54,6 +68,7 @@ async function getAddressesBySocial(
   let result = await client.getAddressesBySocial({ platform, profileId });
   return result.address;
 }
+
 async function sendDonate(
   client: DonexClient,
   recipient: Addr,
@@ -69,18 +84,25 @@ async function sendDonate(
   return result;
 }
 try {
-  //   // Submit transaction
-  //   (async () => {
-  //     let client = await createClient();
-  //     await submitSocial(client);
-  //     // console.log(result)
-  //   })();
-  //   // Query information from contract
-  //   (async () => {
-  //     let client = await createClient();
-  //     let result = await getSocialsByAddress(client);
-  //     console.log(result);
-  //   })();
+  // Submit transaction
+  // (async () => {
+  //   let client = await createClient();
+  //   await submitSocial(
+  //     client,
+  //     "comdex1elk425naxzh895xaedl4q95zylag0d7j08yhd2",
+  //     ["google", "456"]
+  //   );
+  //   // console.log(result)
+  // })();
+  // // Query information from contract
+  // (async () => {
+  //   let client = await createClient();
+  //   let result = await getSocialsByAddress(
+  //     client,
+  //     "comdex1elk425naxzh895xaedl4q95zylag0d7j08yhd2"
+  //   );
+  //   console.log(result);
+  // })();
 
   // Query address, and then send donate
   (async function () {
