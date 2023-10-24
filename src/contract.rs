@@ -186,7 +186,7 @@ mod tests {
                 code_id,
                 Addr::unchecked("owner"),
                 &InstantiateMsg {
-                    accepted_token: vec!["ATOM".to_string()],
+                    accepted_token: vec!["ucmst".to_string()],
                 },
                 &[],
                 "Contract",
@@ -225,7 +225,7 @@ mod tests {
             env.clone(),
             mock_info("sender", &[]),
             InstantiateMsg {
-                accepted_token: vec!["ATOM".to_string()],
+                accepted_token: vec!["ucmst".to_string()],
             },
         )
         .unwrap();
@@ -307,7 +307,7 @@ mod tests {
             env.clone(),
             mock_info("sender", &[]),
             InstantiateMsg {
-                accepted_token: vec!["ATOM".to_string()],
+                accepted_token: vec!["ucmst".to_string()],
             },
         )
         .unwrap();
